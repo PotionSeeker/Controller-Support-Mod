@@ -15,7 +15,7 @@ import com.stereowalker.controllermod.client.controller.UseCase;
 import com.stereowalker.controllermod.client.gui.toasts.ControllerStatusToast;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.ChatScreen; // Import ChatScreen
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -23,10 +23,12 @@ import net.minecraft.sounds.SoundEvents;
 public class ControllerHandler {
 	private final Minecraft minecraft;
 	private final ControllerMod controllerMod;
+	private Screen lastScreen; // Track the previous screen to detect changes
 
 	public ControllerHandler(ControllerMod controllerModIn, Minecraft minecraftIn) {
 		this.minecraft = minecraftIn;
 		this.controllerMod = controllerModIn;
+		this.lastScreen = minecraft.screen; // Initialize with current screen
 	}
 
 	public void controllerConnectedCallback(int jid, int status) {
@@ -67,6 +69,13 @@ public class ControllerHandler {
 	boolean left = false, right = false, up = false, down = false;
 
 	public void processControllerInput(Controller controller, List<UseCase> useCase) {
+		// Detect screen changes
+		if (ControllerUtil.listeningMode == ListeningMode.KEYBOARD && lastScreen != minecraft.screen) {
+			System.out.println("Screen changed from " + (lastScreen != null ? lastScreen.getClass().getSimpleName() : "null") + " to " + (minecraft.screen != null ? minecraft.screen.getClass().getSimpleName() : "null") + ", toggling off onscreen keyboard");
+			this.controllerMod.onScreenKeyboard.switchKeyboard();
+		}
+		lastScreen = minecraft.screen; // Update lastScreen for next frame
+
 		if (ControllerUtil.listeningMode == ListeningMode.KEYBOARD && !useCase.contains(UseCase.INGAME)) {
 			if (controller.areButtonsDown(this.controllerMod.controllerOptions.controllerBindKeyboard.getButtonOnController(controller.getModel())) && this.controllerMod.onScreenKeyboard.switchCooldown == 0) {
 				this.controllerMod.onScreenKeyboard.switchKeyboard();
@@ -106,10 +115,9 @@ public class ControllerHandler {
 				if (options.controllerBindKeyboardEnter.isBoundToButton(controller.getModel())) {
 					int key = GLFW.GLFW_KEY_ENTER;
 					ControllerUtil.pushDown(options.controllerBindKeyboardEnter.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> {
+						System.out.println("Enter key pressed in onscreen keyboard mode");
 						minecraft.keyboardHandler.keyPress(handle, key, 0, 1, 0);
-						// Check if the current screen is a ChatScreen and toggle off the keyboard
 						this.controllerMod.onScreenKeyboard.switchKeyboard();
-
 					}, () -> minecraft.keyboardHandler.keyPress(handle, key, 0, 0, 0));
 				}
 				if (options.controllerBindKeyboardSpace.isBoundToButton(controller.getModel())) {
@@ -120,7 +128,6 @@ public class ControllerHandler {
 					ControllerUtil.pushDown(options.controllerBindKeyboardCaps.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> keyboard.isCapsLocked = !keyboard.isCapsLocked, () -> {});
 			}
 		} else if (ControllerUtil.listeningMode == ListeningMode.LISTEN_TO_MAPPINGS) {
-			// Existing code for LISTEN_TO_MAPPINGS mode
 			int i = 0, j = 0;
 			List<ControllerMapping> currentlyUsing = ControllerMapping.retrieveActiveMappings(controller, useCase);
 			for (int x = 0; x < previouslyUsed.size(); x++) {
@@ -149,7 +156,7 @@ public class ControllerHandler {
 				} else {
 					boolean flag = true;
 					if (useCase.contains(UseCase.INGAME) && ControllerMod.CONFIG.usePreciseMovement && (binding.getDescripti() == minecraft.options.keyUp.getName() || binding.getDescripti() == minecraft.options.keyRight.getName() || binding.getDescripti() == minecraft.options.keyLeft.getName() || binding.getDescripti() == minecraft.options.keyDown.getName())) flag = false;
-					if (useCase.contains(UseCase.CONTAINER) && /* binding.getDescripti() == minecraft.options.keyBindInventory.getName() || */binding.getDescripti() == minecraft.options.keyUse.getName()) flag = false;
+					if (useCase.contains(UseCase.CONTAINER) && binding.getDescripti() == minecraft.options.keyUse.getName()) flag = false;
 					if (flag && binding != null) {
 						if (binding.isBoundToButton(controller.getModel()) && (useCase.contains(binding.getUseCase()))) {
 							binding.tick();
