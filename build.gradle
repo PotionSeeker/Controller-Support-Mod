@@ -81,7 +81,7 @@ dependencies {
 	annotationProcessor "org.spongepowered:mixin:"+modMixinVersion+":processor"
 	implementation "org.spongepowered:mixin:"+modMixinVersion+""
 	implementation fileTree(include: ['*.jar'], dir: 'libs')
-	implementation fg.deobf("com.stereowalker.unionlib:UnionLib:"+modMinecraftVersion+"-"+unionLibVersion+"-"+modLoader+"")
+	implementation fg.deobf("curse.maven:unionlib-367806:6012406")
 	implementation fg.deobf("curse.maven:xareo-317780:4716770")
 	implementation fg.deobf("curse.maven:map_atlases-519759:4732649")
 	implementation fg.deobf("curse.maven:archi-419699:4663010")
