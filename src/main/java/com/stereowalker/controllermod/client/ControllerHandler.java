@@ -15,6 +15,7 @@ import com.stereowalker.controllermod.client.controller.UseCase;
 import com.stereowalker.controllermod.client.gui.toasts.ControllerStatusToast;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ChatScreen; // Import ChatScreen
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -28,51 +29,48 @@ public class ControllerHandler {
 		this.controllerMod = controllerModIn;
 	}
 
-	public void controllerConnectedCallback(int jid, int status){
+	public void controllerConnectedCallback(int jid, int status) {
 		boolean connected = status == GLFW.GLFW_CONNECTED;
 		boolean disconnected = status == GLFW.GLFW_DISCONNECTED;
 		Controller controller;
-		if(connected) {
+		if (connected) {
 			GLFW.glfwGetGamepadName(jid);
 			controller = new Controller(jid, GLFW.glfwGetJoystickName(jid), GLFW.glfwGetJoystickGUID(jid), GLFW.glfwGetJoystickUserPointer(jid));
 			controllerMod.controllers.add(controller);
 			ControllerStatusToast.addOrUpdate(minecraft.getToasts(), ControllerStatusToast.Type.CONNECT, Component.literal(controller.getName()));
-		}
-		else if (disconnected) {
+		} else if (disconnected) {
 			controller = controllerMod.getController(jid);
 			if (controller != null) {
 				ControllerStatusToast.addOrUpdate(minecraft.getToasts(), ControllerStatusToast.Type.DISCONNECT, Component.literal(controller.getName()));
 				controllerMod.controllers.remove(controller);
 			}
-		}
-		else {
+		} else {
 			controller = null;
 		}
 		if (controller != null) {
-
-			System.out.println(jid +" "+controllerMod.controllers.size()+" "+GLFW.glfwGetGamepadName(jid));
+			System.out.println(jid + " " + controllerMod.controllers.size() + " " + GLFW.glfwGetGamepadName(jid));
 		}
 	}
 
 	private List<ControllerMapping> previouslyUsed = Lists.newArrayList();
 	private boolean forceRelease = false;
+
 	public void addToPrevoiuslyUsed(ControllerMapping ma) {
 		previouslyUsed.add(ma);
 		forceRelease = true;
 	}
-	
+
 	public boolean forceRelease() {
 		return forceRelease;
 	}
 
-	
 	boolean left = false, right = false, up = false, down = false;
+
 	public void processControllerInput(Controller controller, List<UseCase> useCase) {
 		if (ControllerUtil.listeningMode == ListeningMode.KEYBOARD && !useCase.contains(UseCase.INGAME)) {
 			if (controller.areButtonsDown(this.controllerMod.controllerOptions.controllerBindKeyboard.getButtonOnController(controller.getModel())) && this.controllerMod.onScreenKeyboard.switchCooldown == 0) {
 				this.controllerMod.onScreenKeyboard.switchKeyboard();
-			}
-			else {
+			} else {
 				OnScreenKeyboard keyboard = this.controllerMod.onScreenKeyboard;
 				ControllerOptions options = this.controllerMod.controllerOptions;
 				int mods = keyboard.isCapsLocked ? GLFW.GLFW_MOD_CAPS_LOCK : 0;
@@ -85,11 +83,14 @@ public class ControllerHandler {
 					ControllerUtil.pushDown(options.controllerBindKeyboardUp.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzoneOSK, () -> up = true, () -> up = false);
 				if (options.controllerBindKeyboardDown.isBoundToButton(controller.getModel()))
 					ControllerUtil.pushDown(options.controllerBindKeyboardDown.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzoneOSK, () -> down = true, () -> down = false);
-				
+
 				keyboard.changeKey(up, down, left, right);
-				
+
 				if (options.controllerBindKeyboardSelect.isBoundToButton(controller.getModel()))
-					ControllerUtil.pushDown(options.controllerBindKeyboardSelect.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> {minecraft.keyboardHandler.charTyped(handle, keyboard.getUnicodeKey(), mods); minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));}, () -> {});
+					ControllerUtil.pushDown(options.controllerBindKeyboardSelect.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> {
+						minecraft.keyboardHandler.charTyped(handle, keyboard.getUnicodeKey(), mods);
+						minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+					}, () -> {});
 				if (options.controllerBindKeyboardBackspace.isBoundToButton(controller.getModel())) {
 					int key = GLFW.GLFW_KEY_BACKSPACE;
 					ControllerUtil.pushDown(options.controllerBindKeyboardBackspace.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> minecraft.keyboardHandler.keyPress(handle, key, 0, 1, 0), () -> minecraft.keyboardHandler.keyPress(handle, key, 0, 0, 0));
@@ -104,7 +105,12 @@ public class ControllerHandler {
 				}
 				if (options.controllerBindKeyboardEnter.isBoundToButton(controller.getModel())) {
 					int key = GLFW.GLFW_KEY_ENTER;
-					ControllerUtil.pushDown(options.controllerBindKeyboardEnter.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> minecraft.keyboardHandler.keyPress(handle, key, 0, 1, 0), () -> minecraft.keyboardHandler.keyPress(handle, key, 0, 0, 0));
+					ControllerUtil.pushDown(options.controllerBindKeyboardEnter.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> {
+						minecraft.keyboardHandler.keyPress(handle, key, 0, 1, 0);
+						// Check if the current screen is a ChatScreen and toggle off the keyboard
+						this.controllerMod.onScreenKeyboard.switchKeyboard();
+
+					}, () -> minecraft.keyboardHandler.keyPress(handle, key, 0, 0, 0));
 				}
 				if (options.controllerBindKeyboardSpace.isBoundToButton(controller.getModel())) {
 					int key = GLFW.GLFW_KEY_SPACE;
@@ -113,14 +119,10 @@ public class ControllerHandler {
 				if (options.controllerBindKeyboardCaps.isBoundToButton(controller.getModel()))
 					ControllerUtil.pushDown(options.controllerBindKeyboardCaps.getButtonOnController(controller.getModel()), controller, InputType.PRESS, ControllerMod.CONFIG.deadzone, () -> keyboard.isCapsLocked = !keyboard.isCapsLocked, () -> {});
 			}
-		}
-		else if (ControllerUtil.listeningMode == ListeningMode.LISTEN_TO_MAPPINGS) {
-			//TODO: Find out where this went
-			//if (useCase.contains(UseCase.INGAME)) this.minecraft.keyboardHandler.setSendRepeatsToGui(false);
+		} else if (ControllerUtil.listeningMode == ListeningMode.LISTEN_TO_MAPPINGS) {
+			// Existing code for LISTEN_TO_MAPPINGS mode
 			int i = 0, j = 0;
 			List<ControllerMapping> currentlyUsing = ControllerMapping.retrieveActiveMappings(controller, useCase);
-			//This should release buttons we are no longer holding
-			//I'm using this type of loop because REI crashes when I use an Iterator
 			for (int x = 0; x < previouslyUsed.size(); x++) {
 				ControllerMapping binding = previouslyUsed.get(x);
 				if ((!currentlyUsing.contains(binding) || forceRelease) && binding != null) {
@@ -150,18 +152,14 @@ public class ControllerHandler {
 					if (useCase.contains(UseCase.CONTAINER) && /* binding.getDescripti() == minecraft.options.keyBindInventory.getName() || */binding.getDescripti() == minecraft.options.keyUse.getName()) flag = false;
 					if (flag && binding != null) {
 						if (binding.isBoundToButton(controller.getModel()) && (useCase.contains(binding.getUseCase()))) {
-							//							if (controller.isButtonDown(binding.getButtonOnController(controller.getModel()))) {
 							binding.tick();
-							//							} else {
-							//								binding.release();
-							//							}
 							ControllerUtil.updateButtonState(binding, binding.getButtonOnController(controller.getModel()), controller, binding.getButtonOnKeyboardOrMouse(), binding.getInputType(controller.getModel()));
 						}
 					}
 				}
 				previouslyUsed.add(binding);
 			}
-			if (i != 0 || j != 0) ControllerMod.debug("Pressed "+i+" bindings and released "+j);
+			if (i != 0 || j != 0) ControllerMod.debug("Pressed " + i + " bindings and released " + j);
 		}
 	}
 
